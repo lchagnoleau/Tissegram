@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # coding=UTF-8
 
+from database import DataBase
+
 import configparser
 import argparse
 
@@ -8,6 +10,15 @@ import argparse
 def main(args):
     config = configparser.ConfigParser()
     config.read(args.conf)
+
+    db = DataBase(  ip=config['Database']['ip'],
+                    port=config['Database']['port'],
+                    database=config['Database']['database'],
+                    username=config['Database']['username'],
+                    password=config['Database']['password'])
+
+    # test database
+    #db.insert(chat_id='0123456', document={'test3':15})
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
