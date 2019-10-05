@@ -7,7 +7,7 @@ import argparse
 
 def main(args):
     config = configparser.ConfigParser()
-    config.read('conf.ini')
+    config.read(args.conf)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -18,6 +18,11 @@ if __name__ == '__main__':
         "--verbose",
         help="verbose mode",
         required = False,
-        action="store_true")
+        action="store_true"),
+    parser.add_argument(
+        "-c",
+        "--conf",
+        help="Path to conf",
+        required = True)
     args = parser.parse_args()
     main(args)
