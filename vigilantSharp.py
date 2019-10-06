@@ -3,6 +3,7 @@
 
 from database import DataBase
 from chatbot import Chatbot
+from public_transport import PublicTransport
 
 import configparser
 import argparse
@@ -20,8 +21,13 @@ def main(args):
                     username=config['Database']['username'],
                     password=config['Database']['password'])
 
-    bot = Chatbot(token=config['Telegram']['token'], db=db)
-    threading.Thread(target=bot.run, kwargs=dict(host='localhost', port=5001)).start()
+    transport = PublicTransport(token=config['Tisseo']['token'])
+
+    # print(transport.get_line(line="79"))
+    print(transport.get_points(line_id="11821949021891674"))
+
+    # bot = Chatbot(token=config['Telegram']['token'], db=db)
+    # threading.Thread(target=bot.run, kwargs=dict(host='localhost', port=5001)).start()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
