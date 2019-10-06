@@ -6,6 +6,8 @@ from chatbot import Chatbot
 
 import configparser
 import argparse
+import time
+import threading
 
 
 def main(args):
@@ -22,7 +24,7 @@ def main(args):
     #db.insert(chat_id='0123456', document={'test3':15})
 
     bot = Chatbot(token=config['Telegram']['token'])
-    # bot.send_message({"chat_id": 0123456,"text": "coucou"})
+    threading.Thread(target=bot.run, kwargs=dict(host='localhost', port=5001)).start()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
