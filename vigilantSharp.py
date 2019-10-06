@@ -22,7 +22,7 @@ def main(args):
     #db.insert(chat_id='0123456', document={'test3':15})
 
     bot = Chatbot(token=config['Telegram']['token'])
-    print(bot.get_updates())
+    # bot.send_message({"chat_id": 0123456,"text": "coucou"})
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
