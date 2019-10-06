@@ -2,6 +2,7 @@
 # coding=UTF-8
 
 from database import DataBase
+from chatbot import Chatbot
 
 import configparser
 import argparse
@@ -19,6 +20,9 @@ def main(args):
 
     # test database
     #db.insert(chat_id='0123456', document={'test3':15})
+
+    bot = Chatbot(token=config['Telegram']['token'])
+    print(bot.get_updates())
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

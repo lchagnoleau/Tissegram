@@ -105,3 +105,4 @@ venv.bak/
 
 # other
 myconf.ini
+myconfdev.ini
