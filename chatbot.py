@@ -54,19 +54,6 @@ class Chatbot(BotHandlerMixin, Bottle):
         self.db = db
         self.route('/', callback=self.post_handler, method="POST")
 
-    def change_text_message(self, text):
-        return text[::-1]
-
-    def prepare_data_for_answer(self, data):
-        message = self.get_message(data)
-        answer = self.change_text_message(message)
-        chat_id = self.get_chat_id(data)
-        json_data = {
-            "chat_id": chat_id,
-            "text": answer,
-        }
-        return json_data
-
     def post_handler(self):
         data = bottle_request.json
         chat_id = self.get_chat_id(data)
