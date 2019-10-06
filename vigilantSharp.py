@@ -20,10 +20,7 @@ def main(args):
                     username=config['Database']['username'],
                     password=config['Database']['password'])
 
-    # test database
-    #db.insert(chat_id='0123456', document={'test3':15})
-
-    bot = Chatbot(token=config['Telegram']['token'])
+    bot = Chatbot(token=config['Telegram']['token'], db=db)
     threading.Thread(target=bot.run, kwargs=dict(host='localhost', port=5001)).start()
 
 if __name__ == '__main__':
