@@ -41,10 +41,16 @@ class PublicTransport(object):
 
     def get_lines_by_stoppoints(self, stopId):
         list_line = []
-        param = "stopPointId={}&displayRealTime=0".format(term)
+        param = "stopPointId={}&displayRealTime=0".format(stopId)
         result_request = requests.get(url=self.construct_url(function="stops_schedules", parameters=param)).json()
+        tmp = []
         for dest in result_request["departures"]["departure"]:
-            if dest["line"]["shortName"] not in list_line:
-                list_line.append(dest["line"]["shortName"])
+            for d in dest["destination"]:
+                tmp.append(dest["line"]["shortName"]) 
+                tmp.append(d["name"])
+                tmp.append(d["id"])
+                if tmp not in list_line:
+                    list_line.append(tmp)
+                tmp = []
 
         return list_line

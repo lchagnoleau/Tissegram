@@ -134,6 +134,53 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         elif step == 2:
             self.answer_callback(prepared_data={"callback_query_id": callback_id})
+            lines = self.transport.get_lines_by_stoppoints(stopId=message)
+            if len(lines) > 0:
+                return_message = "Select the line:\n"
+                callback = {"inline_keyboard":[]}
+                text = ""
+                i = 0
+                history["line-selection"] = []
+                for line in lines:
+                    text = "line {} direction {}".format(line[0], line[1])
+                    callback["inline_keyboard"].append([{"text":text, "callback_data":str(i)}])
+                    history["line-selection"].append(line)
+                    i += 1
+
+                self.send_message(prepared_data={"chat_id": chat_id, "reply_markup":callback, "text": return_message})
+                step += 1
+            
+            else:
+                return_message = "Sorry, there are no lines for this area..."
+                self.send_message(prepared_data={"chat_id": chat_id, "text": return_message})
+                active = "None"
+                step = 0
+
+        elif step == 3:
+            self.answer_callback(prepared_data={"callback_query_id": callback_id})
+            history["line-selected"] = history["line-selection"][int(message)]
+            self.send_message(prepared_data={"chat_id": chat_id, "text": "Finaly, give a name for your favory:"})
+            step += 1
+
+        elif step == 4:
+            line = self.db.get_document(user_id = chat_id)["command"]["history"]["line-selected"]
+            l = {
+                "line":line[0],
+                "destination":line[1],
+                "destination-id":line[2]
+            }
+            favory = self.db.get_document(user_id = chat_id)["favory"]
+            if message not in favory.keys():
+                favory[message] = l
+                self.db.insert(user_id=chat_id, document={'favory':favory})
+                self.send_message(prepared_data={"chat_id": chat_id, "text": "Congratulation, your favory {} is succesfully saved !".format(message)})
+                active = "None"
+                step = 0
+                history.clear()
+
+            else:
+                self.send_message(prepared_data={"chat_id": chat_id, "text": "Name {} is already used. Please select another name:".format(message)})
+
 
         self.db.insert(user_id=chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
