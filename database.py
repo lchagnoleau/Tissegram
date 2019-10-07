@@ -20,7 +20,7 @@ class DataBase(object):
         #open collection
         self.collection = self.db['users']
 
-    def insert(self, chat_id, document):
+    def insert(self, user_id, document):
         try:
             self.collection.update_one({'_id':chat_id}, {"$set": document}, upsert=True)
         except DuplicateKeyError:

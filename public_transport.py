@@ -27,3 +27,14 @@ class PublicTransport(object):
 
     def get_points(self, line_id):
         return requests.get(url=self.construct_url(function="stop_points", parameters="lineId={}".format(line_id))).json()
+
+    def get_places(self, term):
+        places = []
+        term = replace(term, ' ', '%20')
+        param = "term={}&displayOnlyStopAreas=1".format(term)
+        result_request = requests.get(url=self.construct_url(function="places", parameters=param)).json()
+
+        for place in result_request['placesList']['place']:
+            places.append([place['id'], place[label]])
+
+        return places
