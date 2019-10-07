@@ -35,35 +35,56 @@ class BotHandlerMixin:
         self.url = 'https://api.telegram.org/bot{}/'.format(token)
 
     def get_chat_id(self, data):
-        chat_id = data['message']['chat']['id']
+        try:
+            chat_id = data['message']['chat']['id']
+        except:
+            chat_id = data['callback_query']['message']['chat']['id']
         return chat_id
 
+    def get_callback_id(self, data):
+        try:
+            callback_id = data['callback_query']['id']
+        except:
+            callback_id = ""
+        return callback_id
+
     def get_chat_info(self, data):
-        chat_info = dict(data['message']['chat'])
+        try:
+            chat_info = dict(data['message']['chat'])
+        except:
+            chat_info = dict(data['callback_query']['message']['chat'])
         chat_info.pop('id', None)
         return chat_info
 
     def get_user_info(self, data):
-        user_info = dict(data['message']['from'])
+        try:
+            user_info = dict(data['message']['from'])
+        except:
+            user_info = dict(data['callback_query']['from'])
         user_info.pop('id', None)
         return user_info
 
     def get_user_name(self, data):
         user_name = ""
         try:
-            user_name = data['message']['from']['first_name']
+            user_name = self.get_user_info()['first_name']
         except:
             pass
         return user_name
 
     def get_message(self, data):
-        message_text = data['message']['text']
+        try:
+            message_text = data['message']['text']
+        except:
+            message_text = data['callback_query']['data']
         return message_text
 
     def send_message(self, prepared_data):
         message_url = self.url + 'sendMessage'
-        print(prepared_data)
-        print(message_url)
+        requests.post(message_url, json=prepared_data)
+
+    def answer_callback(self, prepared_data):
+        message_url = self.url + 'answerCallbackQuery'
         requests.post(message_url, json=prepared_data)
         
     def get_updates(self):
@@ -84,8 +105,37 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         self.send_message(prepared_data={"chat_id": chat_id,"text": message})
 
-    def add_favory(self, chat_id, command_history={}):
-        pass
+    def add_favory(self, chat_id, command_history={}, message="", callback_id=""):
+        step = command_history['step']
+        history = dict(command_history['history'])
+        active = "/addfav"
+
+        if step == 0:
+            return_message = "Ok, we will add a new favory together.\
+                \nFirst, tell me approximately the name of the stop area"
+
+            self.send_message(prepared_data={"chat_id": chat_id,"text": return_message})
+            step += 1
+
+        elif step == 1:
+            places = self.transport.get_places(term=message)
+            if len(places) > 0:
+                return_message = "Well. Now, selected the correct area in the list below:\n"
+                callback = {"inline_keyboard":[]}
+                for place in places:
+                    callback["inline_keyboard"].append([{"text":place[1], "callback_data":place[0]}])
+
+                self.send_message(prepared_data={"chat_id": chat_id, "reply_markup":callback, "text": return_message})
+                step += 1
+            
+            else:
+                return_message = "Sorry, no input matches with your request. Can you try again:"
+                self.send_message(prepared_data={"chat_id": chat_id, "text": return_message})
+
+        elif step == 2:
+            self.answer_callback(prepared_data={"callback_query_id": callback_id})
+
+        self.db.insert(user_id=chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
     def del_favory(self, chat_id, command_history={}):
         pass
@@ -106,18 +156,22 @@ class Chatbot(BotHandlerMixin, Bottle):
         pass
 
     def display_next_passage(self, chat_id, arg):
+        favory = self.db.get_document(user_id=chat_id)['favory']
         if len(arg) != 1:
             self.send_message(prepared_data={"chat_id": chat_id,"text": "You must enter the name of your favory to show its next passages (ex : /fav toto)"})
+        elif arg[0] not in favory:
+            self.send_message(prepared_data={"chat_id": chat_id,"text": "You must enter a valid name of your favory to show its next passages (ex : /fav toto)"})
         else:
             pass
 
     def post_handler(self):
         data = bottle_request.json
         chat_id = self.get_chat_id(data)
-        user_info = self.get_user_info(data)
         message = self.get_message(data)
         arg = message.split(' ')
         command = arg[0]
+        user_info = self.get_user_info(data)
+        callback_id = self.get_callback_id(data)
         arg.pop(0)
 
         # Check if user is already know and that users data are up to date
@@ -126,42 +180,43 @@ class Chatbot(BotHandlerMixin, Bottle):
             self.db.insert(user_id=chat_id, document={'user-info':user_info,
                 'favory':{},
                 'alarm':{},
-                'command':{'active-command':'None', 'step':0, 'history':[]}
+                'command':{'active-command':'None', 'step':0, 'history':{}}
                 })
             self.send_message({'chat_id':chat_id, 'text':welcome_message(self.get_user_name(data))})
             return response
         elif db_doc['user-info'] != user_info:
             self.db.insert(user_id=chat_id, document={'user-info':user_info})
-            return response
 
         # Check for command
         if command[0] == '/':
+            self.db.insert(user_id=chat_id, document={'command':{'active-command':'None', 'step':0, 'history':{}}})
+            command_history = self.db.get_document(user_id=chat_id)['command']
             if command == "/help":
                 self.display_help(chat_id=chat_id)
             elif command == "/welcome":
                 self.send_message({'chat_id':chat_id, 'text':welcome_message(self.get_user_name(data))})
             elif command == "/addfav":
-                self.add_favory(chat_id=chat_id)
+                self.add_favory(chat_id=chat_id, command_history=command_history)
             elif command == "/delfav":
-                self.del_favory(chat_id=chat_id)
+                self.del_favory(chat_id=chat_id, command_history=command_history)
             elif command == "/showfav":
-                self.show_favory(chat_id=chat_id)
+                self.show_favory(chat_id=chat_id, command_history=command_history)
             elif command == "/addalarm":
-                self.add_alarm(chat_id=chat_id)
+                self.add_alarm(chat_id=chat_id, command_history=command_history)
             elif command == "/delalarm":
-                self.del_alarm(chat_id=chat_id)
+                self.del_alarm(chat_id=chat_id, command_history=command_history)
             elif command == "/showalarm":
-                self.show_alarm(chat_id=chat_id)
+                self.show_alarm(chat_id=chat_id, command_history=command_history)
             elif command == "/fav":
                 self.display_next_passage(chat_id=chat_id, arg=arg)
             else:
                 self.send_message(prepared_data={"chat_id": chat_id,"text": "Sorry, command unknow. type /help to have list of command."})
-        
+    
         # Continue conversation
         else:
             command_history = self.db.get_document(user_id=chat_id)['command']
             if command_history['active-command'] == "/addfav":
-                self.add_favory(chat_id=chat_id, command_history=command_history)
+                self.add_favory(chat_id=chat_id, command_history=command_history, message=message, callback_id=callback_id)
             elif command_history['active-command'] == "/delfav":
                 self.del_favory(chat_id=chat_id, command_history=command_history)
             elif command_history['active-command'] == "/addalarm":
