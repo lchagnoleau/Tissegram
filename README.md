@@ -42,3 +42,6 @@ server {
 """"
 
 systemctl reload nginx.service
+
+https://api.telegram.org/bot{bot_token}/setWebhook?url={your_server_url}
+https://api.telegram.org/bot{bot_token}/getWebhookInfo
