@@ -182,7 +182,6 @@ class Chatbot(BotHandlerMixin, Bottle):
                 active = "None"
                 step = 0
                 history.clear()
-                self.display_help(chat_id=chat_id)
 
             else:
                 self.send_message(prepared_data={"chat_id": chat_id, "text": "Name {} is already used. Please select another name:".format(message)})
@@ -214,12 +213,12 @@ class Chatbot(BotHandlerMixin, Bottle):
             else:
                 message = "You don't have any favory for now."
                 self.send_message(prepared_data={"chat_id": chat_id, "text": message})
-                self.display_help(chat_id=chat_id)
                 active = "None"
                 step = 0
                 history.clear()
 
         elif step == 1:
+            self.answer_callback(prepared_data={"callback_query_id": callback_id})
             fav = self.db.get_document(user_id=chat_id)['favory']
             del fav[message]
             self.db.insert(user_id=chat_id, document={'favory':fav})
@@ -227,7 +226,6 @@ class Chatbot(BotHandlerMixin, Bottle):
             active = "None"
             step = 0
             history.clear()
-            self.display_help(chat_id=chat_id)
      
         self.db.insert(user_id=chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
@@ -254,8 +252,45 @@ class Chatbot(BotHandlerMixin, Bottle):
     def show_alarm(self, chat_id):
         pass
 
-    def display_next_passage(self, chat_id, command_history={}, message="", callback_id=""):
-        favory = self.db.get_document(user_id=chat_id)['favory']
+    def next(self, chat_id, command_history={}, message="", callback_id=""):
+        if command_history is None:
+            step = 0
+            history = {}
+        else:
+            step = command_history['step']
+            history = dict(command_history['history'])
+
+        active = "/next"
+
+        if step == 0:
+            favory = self.db.get_document(user_id=chat_id)['favory']
+            if len(fav) > 0:
+                message = "Select the favory you wanna know the next passages:"
+                callback = {"inline_keyboard":[]}
+                for key, value in fav.items():
+                    text = "\n{} -> line {} destination {}".format(key, value['line'], value['destination'])
+                    callback["inline_keyboard"].append([{"text":text, "callback_data":key}])
+
+                self.send_message(prepared_data={"chat_id": chat_id, "reply_markup":callback, "text": message})
+                step += 1
+            else:
+                message = "You don't have any favory for now. Use /addfav to add one"
+                self.send_message(prepared_data={"chat_id": chat_id, "text": message})
+                active = "None"
+                step = 0
+                history.clear()
+
+        elif step == 1:
+            self.answer_callback(prepared_data={"callback_query_id": callback_id})
+            favory = self.db.get_document(user_id=chat_id)['favory'][message]
+
+            text = ""
+            list_next_passages = self.db.get_next_passages(line=favory['line'], dest_id=favory['destination-id'])
+
+            self.send_message(prepared_data={"chat_id": chat_id, "text": text})
+            active = "None"
+            step = 0
+            history.clear()
 
     def post_handler(self):
         data = bottle_request.json
@@ -297,7 +332,7 @@ class Chatbot(BotHandlerMixin, Bottle):
             elif message == "/showalarm":
                 self.show_alarm(chat_id=chat_id)
             elif message == "/next":
-                self.display_next_passage(chat_id=chat_id)
+                self.next(chat_id=chat_id)
             else:
                 self.send_message(prepared_data={"chat_id": chat_id,"text": "Sorry, command unknow. type /help to have list of command."})
     
