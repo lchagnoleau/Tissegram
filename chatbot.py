@@ -177,6 +177,7 @@ class Chatbot(BotHandlerMixin, Bottle):
                 active = "None"
                 step = 0
                 history.clear()
+                self.display_help(chat_id=chat_id)
 
             else:
                 self.send_message(prepared_data={"chat_id": chat_id, "text": "Name {} is already used. Please select another name:".format(message)})
@@ -184,11 +185,55 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         self.db.insert(user_id=chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
-    def del_favory(self, chat_id, command_history={}):
-        pass
+    def del_favory(self, chat_id, command_history={}, message="", callback_id=""):
+        step = command_history['step']
+        history = dict(command_history['history'])
+        active = "/delfav"
+
+        if step == 0:
+            fav = self.db.get_document(user_id=chat_id)['favory']
+            if len(fav) > 0:
+                message = "Select the favory you wanna delete:"
+                callback = {"inline_keyboard":[]}
+                for key, value in fav.items():
+                    text = "\n{} -> line {} destination {}".format(key, value['line'], value['destination'])
+                    callback["inline_keyboard"].append([{"text":text, "callback_data":key}])
+
+                self.send_message(prepared_data={"chat_id": chat_id, "reply_markup":callback, "text": message})
+                step += 1
+            else:
+                message = "You don't have any favory for now."
+                self.send_message(prepared_data={"chat_id": chat_id, "text": message})
+                self.display_help(chat_id=chat_id)
+                active = "None"
+                step = 0
+                history.clear()
+
+        elif step == 1:
+            fav = self.db.get_document(user_id=chat_id)['favory']
+            del fav[message]
+            self.db.insert(user_id=chat_id, document={'favory':fav})
+            self.send_message(prepared_data={"chat_id": chat_id, "text": "Congratulation, your favory {} is succesfully deleted !".format(message)})
+            active = "None"
+            step = 0
+            history.clear()
+            self.display_help(chat_id=chat_id)
+     
+        self.db.insert(user_id=chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
     def show_favory(self, chat_id):
-        pass
+        fav = self.db.get_document(user_id=chat_id)['favory']
+        message = ""
+        if len(fav) > 0:
+            message += "Here is your favories :"
+            for key, value in fav.items():
+                message += "\n{} -> line {} destination {}".format(key, value['line'], value['destination'])
+        
+        else:
+            message += "Sorry, your favory list is empty for now.\
+                \nPlease use /addfav command to add a new one."
+
+        self.send_message(prepared_data={"chat_id": chat_id, "text": message})
 
     def add_alarm(self, chat_id, command_history={}):
         pass
@@ -196,10 +241,7 @@ class Chatbot(BotHandlerMixin, Bottle):
     def del_alarm(self, chat_id, command_history={}):
         pass
 
-    def show_alarm(self, chat_id):
-        pass
-
-    def show_alarm(self, chat_id):
+    def show_alarm(self, chat_id, command_history={}):
         pass
 
     def display_next_passage(self, chat_id, arg):
@@ -247,7 +289,7 @@ class Chatbot(BotHandlerMixin, Bottle):
             elif command == "/delfav":
                 self.del_favory(chat_id=chat_id, command_history=command_history)
             elif command == "/showfav":
-                self.show_favory(chat_id=chat_id, command_history=command_history)
+                self.show_favory(chat_id=chat_id)
             elif command == "/addalarm":
                 self.add_alarm(chat_id=chat_id, command_history=command_history)
             elif command == "/delalarm":
@@ -265,7 +307,7 @@ class Chatbot(BotHandlerMixin, Bottle):
             if command_history['active-command'] == "/addfav":
                 self.add_favory(chat_id=chat_id, command_history=command_history, message=message, callback_id=callback_id)
             elif command_history['active-command'] == "/delfav":
-                self.del_favory(chat_id=chat_id, command_history=command_history)
+                self.del_favory(chat_id=chat_id, command_history=command_history, message=message, callback_id=callback_id)
             elif command_history['active-command'] == "/addalarm":
                 self.add_alarm(chat_id=chat_id, command_history=command_history)
             elif command_history['active-command'] == "/delalarm":
