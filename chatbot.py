@@ -172,7 +172,8 @@ class Chatbot(BotHandlerMixin, Bottle):
             l = {
                 "line":line[0],
                 "destination":line[1],
-                "destination-id":line[2]
+                "destination-id":line[2],
+                "stop-id":line[3]
             }
             favory = self.db.get_document(user_id = chat_id)["favory"]
             if message not in favory.keys():
@@ -252,7 +253,7 @@ class Chatbot(BotHandlerMixin, Bottle):
     def show_alarm(self, chat_id):
         pass
 
-    def next(self, chat_id, command_history={}, message="", callback_id=""):
+    def next(self, chat_id, command_history=None, message="", callback_id=""):
         if command_history is None:
             step = 0
             history = {}
@@ -264,10 +265,10 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         if step == 0:
             favory = self.db.get_document(user_id=chat_id)['favory']
-            if len(fav) > 0:
+            if len(favory) > 0:
                 message = "Select the favory you wanna know the next passages:"
                 callback = {"inline_keyboard":[]}
-                for key, value in fav.items():
+                for key, value in favory.items():
                     text = "\n{} -> line {} destination {}".format(key, value['line'], value['destination'])
                     callback["inline_keyboard"].append([{"text":text, "callback_data":key}])
 
@@ -285,12 +286,21 @@ class Chatbot(BotHandlerMixin, Bottle):
             favory = self.db.get_document(user_id=chat_id)['favory'][message]
 
             text = ""
-            list_next_passages = self.db.get_next_passages(line=favory['line'], dest_id=favory['destination-id'])
+            list_next_passages = self.transport.get_next_passages(line=favory['line'], dest_id=favory['destination-id'], stop_id=favory['stop-id'])
+            if len(list_next_passages) > 0:
+                text += "Next {} passages for this line:\n".format(len(list_next_passages))
+                for next in list_next_passages:
+                    text += "\n{} -> in {} minutes".format(next[0], next[1])
+
+            else:
+                text += "Sorry, there is no passages for now."
 
             self.send_message(prepared_data={"chat_id": chat_id, "text": text})
             active = "None"
             step = 0
             history.clear()
+
+        self.db.insert(user_id=chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
     def post_handler(self):
         data = bottle_request.json
@@ -348,7 +358,7 @@ class Chatbot(BotHandlerMixin, Bottle):
             elif command_history['active-command'] == "/delalarm":
                 self.del_alarm(chat_id=chat_id, command_history=command_history, message=message, callback_id=callback_id)
             elif command_history['active-command'] == "/next":
-                self.del_favory(chat_id=chat_id, command_history=command_history, message=message, callback_id=callback_id)
+                self.next(chat_id=chat_id, command_history=command_history, message=message, callback_id=callback_id)
             else:
                 self.send_message(prepared_data={"chat_id": chat_id,"text": "Sorry, command unknow. type /help to have list of command."})
     

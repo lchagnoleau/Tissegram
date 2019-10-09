@@ -1,6 +1,8 @@
 # coding=UTF-8
 
 import requests
+from datetime import datetime
+import time
 
 
 class PublicTransport(object):
@@ -49,8 +51,31 @@ class PublicTransport(object):
                 tmp.append(dest["line"]["shortName"]) 
                 tmp.append(d["name"])
                 tmp.append(d["id"])
+                tmp.append(stopId)
                 if tmp not in list_line:
                     list_line.append(tmp)
                 tmp = []
 
         return list_line
+
+    def get_next_passages(self, line, dest_id, stop_id):
+        now = datetime.now()
+        next_passage = []
+        
+        param = "stopPointId={}&displayRealTime=0".format(stop_id)
+        result_request = requests.get(url=self.construct_url(function="stops_schedules", parameters=param)).json()
+        interest_list = []
+        for dest in result_request["departures"]["departure"]:
+            if dest["destination"][0]["id"] == dest_id and dest["line"]["shortName"] == line:
+                interest_list.append(dest)
+
+        for l in interest_list:
+            fmt = '%Y-%m-%d %H:%M:%S'
+            nowstr = now.strftime("%Y-%m-%d %H:%M:%S")
+            d1 = datetime.strptime(nowstr, fmt)
+            d2 = datetime.strptime(l["dateTime"], fmt)
+            d1_ts = time.mktime(d1.timetuple())
+            d2_ts = time.mktime(d2.timetuple())
+            next_passage.append([l["dateTime"], (int(d2_ts-d1_ts) / 60)])
+
+        return next_passage
