@@ -18,7 +18,7 @@ HELP = {
 
 def welcome_message(name):
     message = "Hi {} !\
-        \nI'm Vigilant Sharp and I will help you to not miss your bus. \
+        \nI'm Tissegram and I will help you to not miss your bus. \
         \nTo do this, We will create one or more alarms depending of your needs. \
         \nNext, when your bus will approach from you, I will let know know. \
         \n \

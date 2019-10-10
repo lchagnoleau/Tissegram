@@ -20,7 +20,7 @@ class log(logging.Logger):
     def error(self, msg, *args, **kwargs):
         logging.Logger.error(self, msg, *args, **kwargs)
 
-def get_logger(name, log_path = "/var/log/vigilantsharp/"):
+def get_logger(name, log_path = "/var/log/Tissegram/"):
     if not path.exists(log_path):
         makedirs(log_path)
     logging.setLoggerClass(log)
