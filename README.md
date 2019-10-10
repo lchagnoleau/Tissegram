@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Tissegram
 
 # Webhook install with Nginx and letsencrypt
@@ -45,3 +46,6 @@ systemctl reload nginx.service
 
 https://api.telegram.org/bot{bot_token}/setWebhook?url={your_server_url}
 https://api.telegram.org/bot{bot_token}/getWebhookInfo
+=======
+# Tissegram
+>>>>>>> change project name
