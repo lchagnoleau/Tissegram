@@ -38,7 +38,7 @@ class BotHandlerMixin:
         return chat_info
 
     def get_user_info(self):
-        chat_info = {}
+        user_info = {}
         if self.is_callback():
             user_info = dict(self.data['callback_query']['from'])
         else:

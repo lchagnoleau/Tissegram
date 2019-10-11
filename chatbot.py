@@ -2,6 +2,7 @@
 
 from bottle import Bottle, response, request as bottle_request
 from telegram import BotHandlerMixin
+import inspect
 
 HELP = {
     "/help":"Display this message",
@@ -20,7 +21,7 @@ DEFAULT_DOCUMENT = {
     'favory':{},
     'alarm':{},
     'command':{
-        'active':'',
+        'active':None,
         'step':0,
         'history':{}
     }
@@ -49,6 +50,7 @@ class Chatbot(BotHandlerMixin, Bottle):
         self.db = db
         self.transport = transport
         self.chat_id = ""
+        self.command = {}
         self.route('/', callback=self.post_handler, method="POST")
 
     def post_handler(self):
@@ -58,21 +60,23 @@ class Chatbot(BotHandlerMixin, Bottle):
         is_callback = self.is_callback()
         self.chat_id = self.get_chat_id()
 
+        # Check if user is already know and that users data are up to date
+        db_doc = self.db.get_document(self.chat_id)
+        if db_doc is None:
+            new_user = dict(DEFAULT_DOCUMENT)
+            new_user['user-info'] = self.get_user_info()
+            self.db.insert(user_id=self.chat_id, document=new_user)
+            self.welcome()
+            return response
+
+        # In case we need to update user-info
+        elif db_doc['user-info'] != self.get_user_info():
+            self.db.insert(user_id=self.chat_id, document={'user-info':self.get_user_info()})
+
+        # Get history command from database
+        self.command = self.db.get_document(user_id=self.chat_id)['command']
+
         if not is_callback:
-
-            # Check if user is already know and that users data are up to date
-            db_doc = self.db.get_document(self.chat_id)
-            if db_doc is None:
-                new_user = dict(DEFAULT_DOCUMENT)
-                new_user['user-info'] = self.get_user_info()
-                self.db.insert(new_user)
-                self.send_message({'chat_id':self.chat_id, 'text':welcome_message(self.get_user_name(data))})
-                return response
-
-            # In case we need to update user-info
-            elif db_doc['user-info'] != self.get_user_info():
-                self.db.insert(user_id=self.chat_id, document={'user-info':self.get_user_info()})
-
             # Get message
             message = self.get_message()
 
@@ -86,14 +90,18 @@ class Chatbot(BotHandlerMixin, Bottle):
                 except: # Command is not implemented
                     self.not_implemented()
 
-            else:
+            elif self.command['active'] is None:
                 self.not_implemented()
 
-        else:
-            callback = self.get_callback()
-            command = self.db.get_document(user_id=self.chat_id)['command']
-            getattr(self, command['active'])(callback=callback, command=command)
+            else:
+                getattr(self, self.command['active'])(callback=message) # Don't get the '/'
 
+        else:
+            # Get callback
+            callback = self.get_callback()
+
+            # Call method name
+            getattr(self, self.command['active'])(callback=callback)
     
         return response
 
@@ -115,17 +123,23 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         self.send_message(chat_id=self.chat_id, message=message)
 
-    def test(self, callback=None, command=None):
-        if command is None: # First call to this method
-            active = inspect.stack()[0][3]
-            step = 0
-            history = {}
-        
-        if step == 0:
-            message = "Tell me something :"
-            self.send_callback(chat_id=self.chat_id, message=message, callback=)
+    def test(self, callback=None):
+        if self.command['step'] == 0:
+            self.command['step'] += 1
+            self.command['active'] = inspect.stack()[0][3]
 
-        self.db.insert(user_id=self.chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
+            message = "Tell me something :"
+            self.send_message(chat_id=self.chat_id, message=message)
+
+        elif self.command['step'] == 1:
+            self.command['step'] = 0
+            self.command['active'] = None
+            self.command['history'].clear()
+
+            message = "Ok, you send me : " + callback
+            self.send_message(chat_id=self.chat_id, message=message)
+
+        self.db.insert(user_id=self.chat_id, document={'command':self.command})
 
 
 
@@ -327,4 +341,4 @@ class Chatbot(BotHandlerMixin, Bottle):
     #     self.db.insert(user_id=chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
     def __clear_history(self):
-        self.db.insert(user_id=self.chat_id, document={'command':{'active-command':'None', 'step':'', 'history':{}}})
+        self.db.insert(user_id=self.chat_id, document={'command':{'active':'None', 'step':0, 'history':{}}})
