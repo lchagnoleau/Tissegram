@@ -343,7 +343,7 @@ class Chatbot(BotHandlerMixin, Bottle):
                 message = "Select the favory you wanna know the next passages:"
                 user_callback = {"inline_keyboard":[]}
                 for key, value in self.favory.items():
-                    text = "\n{} -> line {} destination {}".format(key, value['line'], value['destination'])
+                    text = "\n{} -> line {} destination {}".format(key, value['line-name'], value['dest-name'])
                     user_callback["inline_keyboard"].append([{"text":text, "callback_data":key}])
 
                 self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
@@ -360,9 +360,10 @@ class Chatbot(BotHandlerMixin, Bottle):
             self.answer_callback(callback_id=self.callback_id)
 
             message = ""
-            list_next_passages = self.transport.get_next_passages(  line=self.favory[callback]['line'],
-                                                                    dest_id=self.favory[callback]['destination-id'],
-                                                                    stop_id=self.favory[callback]['stop-id'])
+            list_next_passages = self.transport.get_next_passages(  line=self.favory[callback]['line-name'],
+                                                                    dest_id=self.favory[callback]['dest-id'],
+                                                                    stop_id=self.favory[callback]['stop-id'],
+                                                                    line_id=self.favory[callback]['line-id'])
             if len(list_next_passages) > 0:
                 message += "Next {} passages for this line:\n".format(len(list_next_passages))
                 for next in list_next_passages:

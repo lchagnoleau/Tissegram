@@ -44,7 +44,7 @@ class PublicTransport(object):
     def get_lines_by_stoppoints(self, stopId):
         list_line = []
 
-        param = "stopAreaId={}&displayLines=1&displayDestinations=1".format(stopId)
+        param = "stopAreaId={}&displayLines=1&displayDestinations=1&timeFrame=7".format(stopId)
         result_request = requests.get(url=self.construct_url(function="stop_points", parameters=param)).json()
         
         line = {}
@@ -60,11 +60,11 @@ class PublicTransport(object):
 
         return list_line
 
-    def get_next_passages(self, line, dest_id, stop_id):
+    def get_next_passages(self, line, dest_id, stop_id, line_id):
         now = datetime.now()
         next_passage = []
         
-        param = "stopPointId={}&displayRealTime=0".format(stop_id)
+        param = "stopPointId={}&lineId={}".format(stop_id, line_id)
         result_request = requests.get(url=self.construct_url(function="stops_schedules", parameters=param)).json()
         interest_list = []
         for dest in result_request["departures"]["departure"]:
