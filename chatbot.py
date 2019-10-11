@@ -50,7 +50,9 @@ class Chatbot(BotHandlerMixin, Bottle):
         self.db = db
         self.transport = transport
         self.chat_id = ""
+        self.callback_id = ""
         self.command = {}
+        self.favory = {}
         self.route('/', callback=self.post_handler, method="POST")
 
     def post_handler(self):
@@ -73,8 +75,9 @@ class Chatbot(BotHandlerMixin, Bottle):
         elif db_doc['user-info'] != self.get_user_info():
             self.db.insert(user_id=self.chat_id, document={'user-info':self.get_user_info()})
 
-        # Get history command from database
+        # Get var command from database
         self.command = self.db.get_document(user_id=self.chat_id)['command']
+        self.favory = self.db.get_document(user_id=self.chat_id)['favory']
 
         if not is_callback:
             # Get message
@@ -82,7 +85,7 @@ class Chatbot(BotHandlerMixin, Bottle):
 
             # If message is a command, clear history
             if message[0] == '/':
-                self.__clear_history()
+                self.__clear_command()
 
                 # Call method name
                 try:
@@ -99,6 +102,9 @@ class Chatbot(BotHandlerMixin, Bottle):
         else:
             # Get callback
             callback = self.get_callback()
+
+            # Get callback id
+            self.callback_id = self.get_callback_id()
 
             # Call method name
             getattr(self, self.command['active'])(callback=callback)
@@ -139,7 +145,93 @@ class Chatbot(BotHandlerMixin, Bottle):
             message = "Ok, you send me : " + callback
             self.send_message(chat_id=self.chat_id, message=message)
 
-        self.db.insert(user_id=self.chat_id, document={'command':self.command})
+        self.__write_command()
+
+    def addfav(self, callback=None):
+        if self.command['step'] == 0:
+            self.command['step'] += 1
+            self.command['active'] = inspect.stack()[0][3]
+
+            message = "Ok, we will add a new favory together.\
+                \nFirst, tell me approximately the name of the stop area"
+            self.send_message(chat_id=self.chat_id, message=message)
+
+
+        elif self.command['step'] == 1:
+            places = self.transport.get_places(term=callback)
+            if len(places) > 0:
+                message = "Well. Now, selected the correct area in the list below:\n"
+                user_callback = {"inline_keyboard":[]}
+                for place in places:
+                    user_callback["inline_keyboard"].append([{"text":place[1], "callback_data":place[0]}])
+
+                self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                self.command['step'] += 1
+            
+            else:
+                message = "Sorry, no input matches with your request. Can you try again:"
+                self.send_message(chat_id=self.chat_id, message=message)
+
+            
+        elif self.command['step'] == 2:
+            self.answer_callback(callback_id=self.callback_id)
+
+            lines = self.transport.get_lines_by_stoppoints(stopId=callback)
+            if len(lines) > 0:
+                message = "Select the line:\n"
+                user_callback = {"inline_keyboard":[]}
+                text = ""
+                i = 0
+                self.command['history']["line-selection"] = []
+                for line in lines:
+                    text = "line {} direction {}".format(line[0], line[1])
+                    user_callback["inline_keyboard"].append([{"text":text, "callback_data":str(i)}])
+                    self.command['history']["line-selection"].append(line)
+                    i += 1
+
+                self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                self.command['step'] += 1
+            
+            else:
+                self.command['step'] = 0
+                self.command['active'] = None
+                self.command['history'].clear()
+                message = "Sorry, there are no lines for this area..."
+                self.send_message(chat_id=self.chat_id, message=message)
+
+
+        elif self.command['step'] == 3:
+            self.answer_callback(callback_id=self.callback_id)
+
+            self.command['history']["line-selected"] = self.command['history']["line-selection"][int(callback)]
+            message = "Finaly, give a name for your favory:"
+
+            self.send_message(chat_id=self.chat_id, message=message)
+            self.command['step'] += 1
+
+
+        elif self.command['step'] == 4:
+            l = {
+                "line":self.command['history']["line-selected"][0],
+                "destination":self.command['history']["line-selected"][1],
+                "destination-id":self.command['history']["line-selected"][2],
+                "stop-id":self.command['history']["line-selected"][3]
+            }
+            if callback not in self.favory.keys():
+                self.favory[callback] = l
+                self.__write_favory()
+                message = "Congratulation, your favory {} is succesfully saved !".format(callback)
+                self.command['step'] = 0
+                self.command['active'] = None
+                self.command['history'].clear()
+
+            else:
+                message = "Name {} is already used. Please select another name:".format(callback)
+
+            self.send_message(chat_id=self.chat_id, message=message)
+
+
+        self.__write_command()
 
 
 
@@ -340,5 +432,11 @@ class Chatbot(BotHandlerMixin, Bottle):
 
     #     self.db.insert(user_id=chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
-    def __clear_history(self):
+    def __clear_command(self):
         self.db.insert(user_id=self.chat_id, document={'command':{'active':'None', 'step':0, 'history':{}}})
+
+    def __write_command(self):
+        self.db.insert(user_id=self.chat_id, document={'command':self.command})
+
+    def __write_favory(self):
+        self.db.insert(user_id=self.chat_id, document={'favory':self.favory})

@@ -54,7 +54,7 @@ class BotHandlerMixin:
         return self.data['message']['text']
 
     def get_callback(self):
-        return self.data['callback_query']['self.data']
+        return str(self.data['callback_query']['data'])
 
     def send_message(self, chat_id, message):
         message_url = self.url + 'sendMessage'
