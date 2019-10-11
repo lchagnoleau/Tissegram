@@ -118,7 +118,12 @@ class Chatbot(BotHandlerMixin, Bottle):
     def test(self, callback=None, command=None):
         if command is None: # First call to this method
             active = inspect.stack()[0][3]
+            step = 0
+            history = {}
+        
+        if step == 0:
             message = "Tell me something :"
+            self.send_callback(chat_id=self.chat_id, message=message, callback=)
 
         self.db.insert(user_id=self.chat_id, document={'command':{'active-command':active, 'step':step, 'history':history}})
 
