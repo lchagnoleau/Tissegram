@@ -43,18 +43,20 @@ class PublicTransport(object):
 
     def get_lines_by_stoppoints(self, stopId):
         list_line = []
-        param = "stopPointId={}&displayRealTime=0".format(stopId)
-        result_request = requests.get(url=self.construct_url(function="stops_schedules", parameters=param)).json()
-        tmp = []
-        for dest in result_request["departures"]["departure"]:
-            for d in dest["destination"]:
-                tmp.append(dest["line"]["shortName"]) 
-                tmp.append(d["name"])
-                tmp.append(d["id"])
-                tmp.append(stopId)
-                if tmp not in list_line:
-                    list_line.append(tmp)
-                tmp = []
+
+        param = "stopAreaId={}&displayLines=1&displayDestinations=1".format(stopId)
+        result_request = requests.get(url=self.construct_url(function="stop_points", parameters=param)).json()
+        
+        line = {}
+        for physicalStops in result_request['physicalStops']['physicalStop']:
+            for dest in physicalStops['destinations']:
+                line['dest-name'] = dest['name']
+                line['dest-id'] = dest['id']
+                for l in dest['line']:
+                    if l['reservationMandatory'] == '0':
+                        line['line-name'] = l['shortName']
+                        line['line-id'] = l['id']
+                        list_line.append(dict(line))
 
         return list_line
 

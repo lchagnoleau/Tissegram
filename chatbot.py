@@ -53,6 +53,7 @@ class Chatbot(BotHandlerMixin, Bottle):
         self.callback_id = ""
         self.command = {}
         self.favory = {}
+        self.alarm = []
         self.route('/', callback=self.post_handler, method="POST")
 
     def post_handler(self):
@@ -78,6 +79,7 @@ class Chatbot(BotHandlerMixin, Bottle):
         # Get var command from database
         self.command = self.db.get_document(user_id=self.chat_id)['command']
         self.favory = self.db.get_document(user_id=self.chat_id)['favory']
+        self.alarm = self.db.get_document(user_id=self.chat_id)['alarm']
 
         if not is_callback:
             # Get message
@@ -184,9 +186,10 @@ class Chatbot(BotHandlerMixin, Bottle):
                 i = 0
                 self.command['history']["line-selection"] = []
                 for line in lines:
-                    text = "line {} direction {}".format(line[0], line[1])
+                    text = "line {} direction {}".format(line['line-name'], line['dest-name'])
                     user_callback["inline_keyboard"].append([{"text":text, "callback_data":str(i)}])
-                    self.command['history']["line-selection"].append(line)
+                    line['stop-id'] = callback
+                    self.command['history']["line-selection"].append(dict(line))
                     i += 1
 
                 self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
@@ -211,14 +214,8 @@ class Chatbot(BotHandlerMixin, Bottle):
 
 
         elif self.command['step'] == 4:
-            l = {
-                "line":self.command['history']["line-selected"][0],
-                "destination":self.command['history']["line-selected"][1],
-                "destination-id":self.command['history']["line-selected"][2],
-                "stop-id":self.command['history']["line-selected"][3]
-            }
             if callback not in self.favory.keys():
-                self.favory[callback] = l
+                self.favory[callback] = self.command['history']["line-selected"]
                 self.__write_favory()
                 message = "Congratulation, your favory {} is succesfully saved !".format(callback)
                 self.command['step'] = 0
@@ -242,7 +239,7 @@ class Chatbot(BotHandlerMixin, Bottle):
                 message = "Select the favory you wanna delete:"
                 user_callback = {"inline_keyboard":[]}
                 for key, value in self.favory.items():
-                    text = "\n{} -> line {} destination {}".format(key, value['line'], value['destination'])
+                    text = "\n{} -> line {} destination {}".format(key, value['line-name'], value['dest-name'])
                     user_callback["inline_keyboard"].append([{"text":text, "callback_data":key}])
 
                 self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
@@ -272,7 +269,9 @@ class Chatbot(BotHandlerMixin, Bottle):
         if len(self.favory) > 0:
             message += "Here is your favories :"
             for key, value in self.favory.items():
-                message += "\n{} -> line {} destination {}".format(key, value['line'], value['destination'])
+                print(key)
+                print(value)
+                message += "\n{} -> line {} destination {}".format(key, value['line-name'], value['dest-name'])
         
         else:
             message += "Sorry, your favory list is empty for now.\
@@ -284,10 +283,57 @@ class Chatbot(BotHandlerMixin, Bottle):
         pass
 
     def delalarm(self, callback=None):
-        pass
+        if self.command['step'] == 0:
+            self.command['active'] = inspect.stack()[0][3]
 
+            if len(self.alarm) > 0:
+                message = "Select the alarm you wanna delete:"
+                user_callback = {"inline_keyboard":[]}
+                for i in len(0, self.alarm):
+                    day = ""
+                    for d in self.alarm[i]['day']:
+                        day += "{},".format(d)
+                    day = day[:-1]
+                    text = "\nFavory name :{} -> {} at {}".format(self.alarm[i]['line'], day, self.alarm[i]['time'])
+                    user_callback["inline_keyboard"].append([{"text":text, "callback_data":i}])
+
+                self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                self.command['step'] += 1
+            else:
+                self.command['active'] = None
+                self.command['history'].clear()
+                message = "You don't have any alarm for now."
+                self.send_message(chat_id=self.chat_id, message=message)
+
+        elif self.command['step'] == 1:
+            self.answer_callback(callback_id=self.callback_id)
+
+            self.command['step'] = 0
+            self.command['active'] = None
+            self.command['history'].clear()
+            
+            self.alarm.pop(callback)
+            self.__write_favory()
+            message = "Congratulation, your alarm is succesfully deleted !"
+            self.send_message(chat_id=self.chat_id, message=message)
+     
+        self.__write_command()
     def showalarm(self):
-        pass
+        message = ""
+        if len(self.alarm) > 0:
+            message += "Here is your alarms :"
+            for alarm in self.alarm:
+                day = ""
+                for d in alarm['day']:
+                    day += "{},".format(d)
+                day = day[:-1]
+                message += "\nFavory name :{} -> {} at {}".format(alarm['line'], day, alarm['time'])
+        
+        else:
+            message += "Sorry, your alarm list is empty for now.\
+                \nPlease use /addalarm command to add a new one."
+
+        self.send_message(chat_id=self.chat_id, message=message)
 
     def next(self, callback=None):
         if self.command['step'] == 0:
