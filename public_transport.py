@@ -76,6 +76,6 @@ class PublicTransport(object):
             d2 = datetime.strptime(l["dateTime"], fmt)
             d1_ts = time.mktime(d1.timetuple())
             d2_ts = time.mktime(d2.timetuple())
-            next_passage.append([l["dateTime"], (int(d2_ts-d1_ts) / 60)])
+            next_passage.append([l["dateTime"], int(int(d2_ts-d1_ts) / 60)])
 
         return next_passage
