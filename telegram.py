@@ -53,17 +53,26 @@ class BotHandlerMixin:
     def get_message(self):
         return self.data['message']['text']
 
+    def get_message_id(self):
+        return self.data['message']['message_id']
+
     def get_callback(self):
         return str(self.data['callback_query']['data'])
 
     def send_message(self, chat_id, message):
         message_url = self.url + 'sendMessage'
-        requests.post(message_url, json={'chat_id':chat_id, 'text':message})
+        r = requests.post(message_url, json={'chat_id':chat_id, 'text':message})
+        return r.json()['result']['message_id']
 
     def send_callback(self, chat_id, message, callback):
         message_url = self.url + 'sendMessage'
-        requests.post(message_url, json={'chat_id':chat_id, 'reply_markup':callback, 'text':message})
+        r = requests.post(message_url, json={'chat_id':chat_id, 'reply_markup':callback, 'text':message})
+        return r.json()['result']['message_id']
 
     def answer_callback(self, callback_id):
         message_url = self.url + 'answerCallbackQuery'
         requests.post(message_url, json={"callback_query_id": callback_id})
+
+    def delete_message(self, chat_id, message_id):
+        message_url = self.url + 'deleteMessage'
+        requests.post(message_url, json={'chat_id':chat_id, 'message_id':message_id})

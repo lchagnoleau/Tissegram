@@ -84,9 +84,16 @@ class Chatbot(BotHandlerMixin, Bottle):
         if not is_callback:
             # Get message
             message = self.get_message()
+            message_id = self.get_message_id()
 
             # If message is a command, clear history
             if message[0] == '/':
+                try:
+                    for id in self.command['history']['message_id']:
+                        self.delete_message(chat_id=self.chat_id, message_id=id)
+                except KeyError:
+                    pass
+
                 self.__clear_command()
 
                 # Call method name
@@ -99,7 +106,7 @@ class Chatbot(BotHandlerMixin, Bottle):
                 self.not_implemented()
 
             else:
-                getattr(self, self.command['active'])(callback=message) # Don't get the '/'
+                getattr(self, self.command['active'])(callback=message, message_id=message_id) # Don't get the '/'
 
         else:
             # Get callback
@@ -131,15 +138,20 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         self.send_message(chat_id=self.chat_id, message=message)
 
-    def test(self, callback=None):
+    def test(self, callback=None, message_id=None):
         if self.command['step'] == 0:
             self.command['step'] += 1
             self.command['active'] = inspect.stack()[0][3]
+            self.command['history']['message_id'] = []
 
             message = "Tell me something :"
-            self.send_message(chat_id=self.chat_id, message=message)
+            return_id = self.send_message(chat_id=self.chat_id, message=message)
+            self.command['history']['message_id'].append(return_id)
 
         elif self.command['step'] == 1:
+            for id in self.command['history']['message_id']:
+                self.delete_message(chat_id=self.chat_id, message_id=id)
+
             self.command['step'] = 0
             self.command['active'] = None
             self.command['history'].clear()
@@ -149,17 +161,20 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         self.__write_command()
 
-    def addfav(self, callback=None):
+    def addfav(self, callback=None, message_id=None):
         if self.command['step'] == 0:
             self.command['step'] += 1
             self.command['active'] = inspect.stack()[0][3]
+            self.command['history']['message_id'] = []
 
             message = "Ok, we will add a new favory together.\
                 \nFirst, tell me approximately the name of the stop area"
-            self.send_message(chat_id=self.chat_id, message=message)
+            return_id = self.send_message(chat_id=self.chat_id, message=message)
+            self.command['history']['message_id'].append(return_id)
 
 
         elif self.command['step'] == 1:
+            self.command['history']['message_id'].append(message_id)
             places = self.transport.get_places(term=callback)
             if len(places) > 0:
                 message = "Well. Now, selected the correct area in the list below:\n"
@@ -167,16 +182,19 @@ class Chatbot(BotHandlerMixin, Bottle):
                 for place in places:
                     user_callback["inline_keyboard"].append([{"text":place[1], "callback_data":place[0]}])
 
-                self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                return_id = self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                self.command['history']['message_id'].append(return_id)
                 self.command['step'] += 1
             
             else:
                 message = "Sorry, no input matches with your request. Can you try again:"
-                self.send_message(chat_id=self.chat_id, message=message)
+                return_id = self.send_message(chat_id=self.chat_id, message=message)
+                self.command['history']['message_id'].append(return_id)
 
             
         elif self.command['step'] == 2:
             self.answer_callback(callback_id=self.callback_id)
+            self.command['history']['message_id'].append(message_id)
 
             lines = self.transport.get_lines_by_stoppoints(stopId=callback)
             if len(lines) > 0:
@@ -192,7 +210,8 @@ class Chatbot(BotHandlerMixin, Bottle):
                     self.command['history']["line-selection"].append(dict(line))
                     i += 1
 
-                self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                return_id = self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                self.command['history']['message_id'].append(return_id)
                 self.command['step'] += 1
             
             else:
@@ -205,35 +224,42 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         elif self.command['step'] == 3:
             self.answer_callback(callback_id=self.callback_id)
+            self.command['history']['message_id'].append(message_id)
 
             self.command['history']["line-selected"] = self.command['history']["line-selection"][int(callback)]
             message = "Finaly, give a name for your favory:"
 
-            self.send_message(chat_id=self.chat_id, message=message)
+            return_id = self.send_message(chat_id=self.chat_id, message=message)
+            self.command['history']['message_id'].append(return_id)
             self.command['step'] += 1
 
 
         elif self.command['step'] == 4:
+            self.command['history']['message_id'].append(message_id)
             if callback not in self.favory.keys():
                 self.favory[callback] = self.command['history']["line-selected"]
                 self.__write_favory()
                 message = "Congratulation, your favory {} is succesfully saved !".format(callback)
+                self.send_message(chat_id=self.chat_id, message=message)
+                for id in self.command['history']['message_id']:
+                    self.delete_message(chat_id=self.chat_id, message_id=id)
                 self.command['step'] = 0
                 self.command['active'] = None
                 self.command['history'].clear()
 
             else:
                 message = "Name {} is already used. Please select another name:".format(callback)
-
-            self.send_message(chat_id=self.chat_id, message=message)
+                return_id = self.send_message(chat_id=self.chat_id, message=message)
+                self.command['history']['message_id'].append(return_id)
 
 
         self.__write_command()
 
 
-    def delfav(self, callback=None):
+    def delfav(self, callback=None, message_id=None):
         if self.command['step'] == 0:
             self.command['active'] = inspect.stack()[0][3]
+            self.command['history']['message_id'] = []
 
             if len(self.favory) > 0:
                 message = "Select the favory you wanna delete:"
@@ -242,16 +268,21 @@ class Chatbot(BotHandlerMixin, Bottle):
                     text = "\n{} -> line {} destination {}".format(key, value['line-name'], value['dest-name'])
                     user_callback["inline_keyboard"].append([{"text":text, "callback_data":key}])
 
-                self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                return_id = self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                self.command['history']['message_id'].append(return_id)
                 self.command['step'] += 1
             else:
                 self.command['active'] = None
                 self.command['history'].clear()
                 message = "You don't have any favory for now."
-                self.send_message(chat_id=self.chat_id, message=message)
+                return_id = self.send_message(chat_id=self.chat_id, message=message)
+                self.command['history']['message_id'].append(return_id)
 
         elif self.command['step'] == 1:
             self.answer_callback(callback_id=self.callback_id)
+            self.command['history']['message_id'].append(message_id)
+            for id in self.command['history']['message_id']:
+                self.delete_message(chat_id=self.chat_id, message_id=id)
 
             self.command['step'] = 0
             self.command['active'] = None
@@ -269,8 +300,6 @@ class Chatbot(BotHandlerMixin, Bottle):
         if len(self.favory) > 0:
             message += "Here is your favories :"
             for key, value in self.favory.items():
-                print(key)
-                print(value)
                 message += "\n{} -> line {} destination {}".format(key, value['line-name'], value['dest-name'])
         
         else:
@@ -279,12 +308,13 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         self.send_message(chat_id=self.chat_id, message=message)
 
-    def addalarm(self, callback=None):
+    def addalarm(self, callback=None, message_id=None):
         pass
 
-    def delalarm(self, callback=None):
+    def delalarm(self, callback=None, message_id=None):
         if self.command['step'] == 0:
             self.command['active'] = inspect.stack()[0][3]
+            self.command['history']['message_id'] = []
 
             if len(self.alarm) > 0:
                 message = "Select the alarm you wanna delete:"
@@ -297,7 +327,8 @@ class Chatbot(BotHandlerMixin, Bottle):
                     text = "\nFavory name :{} -> {} at {}".format(self.alarm[i]['line'], day, self.alarm[i]['time'])
                     user_callback["inline_keyboard"].append([{"text":text, "callback_data":i}])
 
-                self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                return_id = self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                self.command['history']['message_id'].append(return_id)
                 self.command['step'] += 1
             else:
                 self.command['active'] = None
@@ -307,6 +338,9 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         elif self.command['step'] == 1:
             self.answer_callback(callback_id=self.callback_id)
+            self.command['history']['message_id'].append(message_id)
+            for id in self.command['history']['message_id']:
+                self.delete_message(chat_id=self.chat_id, message_id=id)
 
             self.command['step'] = 0
             self.command['active'] = None
@@ -335,7 +369,7 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         self.send_message(chat_id=self.chat_id, message=message)
 
-    def next(self, callback=None):
+    def next(self, callback=None, message_id=None):
         if self.command['step'] == 0:
             self.command['active'] = inspect.stack()[0][3]
 
