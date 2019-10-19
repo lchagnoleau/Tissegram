@@ -2,8 +2,8 @@
 
 from bottle import Bottle, response, request as bottle_request
 from telegram import BotHandlerMixin
+from copy import deepcopy
 
-import copy
 import inspect
 
 HELP = {
@@ -72,7 +72,7 @@ class Chatbot(BotHandlerMixin, Bottle):
         # Check if user is already know and that users data are up to date
         db_doc = self.db.get_document(self.chat_id)
         if db_doc is None:
-            new_user = copy.deepcopy(DEFAULT_DOCUMENT)
+            new_user = deepcopy(DEFAULT_DOCUMENT)
             new_user['user-info'] = self.get_user_info()
             self.db.insert(user_id=self.chat_id, document=new_user)
             self.welcome()
@@ -88,7 +88,7 @@ class Chatbot(BotHandlerMixin, Bottle):
 
         # Get command history from RAM
         if not self.chat_id in self.command.keys():
-            self.command[self.chat_id] = copy.deepcopy(DEFAULT_HISTORY)
+            self.command[self.chat_id] = deepcopy(DEFAULT_HISTORY)
 
         if not is_callback:
             # Get message
@@ -100,7 +100,7 @@ class Chatbot(BotHandlerMixin, Bottle):
                 try:
                     self.__delete_messages()
                     del self.command[self.chat_id]
-                    self.command[self.chat_id] = copy.deepcopy(DEFAULT_HISTORY)
+                    self.command[self.chat_id] = deepcopy(DEFAULT_HISTORY)
                 except KeyError:
                     pass
 
