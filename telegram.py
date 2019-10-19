@@ -3,10 +3,11 @@
 import requests
 
 class BotHandlerMixin:
-    def __init__(self, token):
+    def __init__(self, token, webhook_ip):
         self.url = 'https://api.telegram.org/bot{}/'.format(token)
         self.data = {}
         self.chat_id = ""
+        self.webhook_ip = webhook_ip
 
     def set_data(self, data):
         self.data.clear()
@@ -69,6 +70,11 @@ class BotHandlerMixin:
         r = requests.post(message_url, json={'chat_id':chat_id, 'reply_markup':callback, 'text':message})
         return r.json()['result']['message_id']
 
+    def get_Updates(self, offset=0):
+        message_url = self.url + 'getUpdates'
+        r = requests.post(message_url, json={'offset':offset})
+        return r.json()
+
     def answer_callback(self, callback_id):
         message_url = self.url + 'answerCallbackQuery'
         requests.post(message_url, json={"callback_query_id": callback_id})
@@ -76,3 +82,19 @@ class BotHandlerMixin:
     def delete_message(self, chat_id, message_id):
         message_url = self.url + 'deleteMessage'
         requests.post(message_url, json={'chat_id':chat_id, 'message_id':message_id})
+
+    def reset_messages(self):
+        message_url = self.url + 'deleteWebhook'
+        requests.post(message_url, json={})
+        updates = self.get_Updates()
+
+        if len(updates['result']) > 0:
+            update_id = 0
+            for results in updates['result']:
+                if results['update_id'] >= update_id:
+                    update_id = results['update_id'] + 1
+
+            updates = self.get_Updates(offset=update_id)
+
+        message_url = self.url + 'setWebhook'
+        requests.post(message_url, json={'url':self.webhook_ip})

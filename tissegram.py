@@ -26,7 +26,7 @@ def main(args):
     # print(transport.get_line(line="79"))
     # print(transport.get_points(line_id="11821949021891674"))
 
-    bot = Chatbot(token=config['Telegram']['token'], db=db, transport=transport)
+    bot = Chatbot(token=config['Telegram']['token'], webhook_ip=config['Telegram']['webhook'], db=db, transport=transport)
     threading.Thread(target=bot.run, kwargs=dict(host='localhost', port=5001)).start()
 
 if __name__ == '__main__':
