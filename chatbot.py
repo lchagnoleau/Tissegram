@@ -21,7 +21,7 @@ HELP = {
 DEFAULT_DOCUMENT = {
     'user-info':'',
     'favory':{},
-    'alarm':{}
+    'alarm':[]
 }
 
 DEFAULT_HISTORY = {
@@ -232,7 +232,6 @@ class Chatbot(BotHandlerMixin, Bottle):
     def delfav(self, callback=None, message_id=None):
         if self.command[self.chat_id]['step'] == 0:
             self.command[self.chat_id]['active'] = inspect.stack()[0][3]
-            self.command[self.chat_id]['history']['message_id'] = []
 
             if len(self.favory) > 0:
                 message = "Select the favory you wanna delete:"
@@ -275,22 +274,106 @@ class Chatbot(BotHandlerMixin, Bottle):
         self.send_message(chat_id=self.chat_id, message=message)
 
     def addalarm(self, callback=None, message_id=None):
-        pass
+        if self.command[self.chat_id]['step'] == 0:
+            self.command[self.chat_id]['active'] = inspect.stack()[0][3]
+
+            if len(self.favory) > 0:
+                message = "Select the favory you wanna add an alarm:"
+                user_callback = {"inline_keyboard":[]}
+                for key, value in self.favory.items():
+                    text = "\n{} -> line {} destination {}".format(key, value['line-name'], value['dest-name'])
+                    user_callback["inline_keyboard"].append([{"text":text, "callback_data":key}])
+
+                return_id = self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                self.command[self.chat_id]['history']['message_id'].append(return_id)
+                self.command[self.chat_id]['step'] += 1
+            else:
+                message = "You don't have any favory for now. Use /addfav to add one"
+                self.send_message(chat_id=self.chat_id, message=message)
+                del self.command[self.chat_id]
+
+        elif self.command[self.chat_id]['step'] == 1:
+            self.answer_callback(callback_id=self.callback_id)
+
+            self.command[self.chat_id]['history']['favory'] = callback
+
+            message = "Tell me the approximate hour for this line (ex: 8h30 or 8h..):"
+            return_id = self.send_message(chat_id=self.chat_id, message=message)
+            self.command[self.chat_id]['history']['message_id'].append(return_id)
+            self.command[self.chat_id]['step'] += 1
+
+        elif self.command[self.chat_id]['step'] == 2:
+            correct_format = True
+            date = callback.split('h')
+            if len(date) < 2:
+                correct_format = False
+
+            elif len(date) == 2:
+                try:
+                    hour = int(date[0])
+                    if date[1] != '':
+                        minute = int(date[1])
+                    else:
+                        minute = 0
+                except:
+                    correct_format = False
+
+            else:
+                correct_format = False
+
+            if correct_format:
+                if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+                    correct_format = False
+
+            if correct_format is False:
+                message = "Sorry, your date format is not correct. Try again :(ex: 8h30 or 8h..)"
+                self.send_message(chat_id=self.chat_id, message=message)
+
+            else:
+                list_passage = self.transport.get_passages( dest_id=self.favory[self.command[self.chat_id]['history']['favory']]['dest-id'],
+                                                            stop_id=self.favory[self.command[self.chat_id]['history']['favory']]['stop-id'],
+                                                            line_id=self.favory[self.command[self.chat_id]['history']['favory']]['line-id'],
+                                                            hour=hour,
+                                                            minute=minute)
+
+                if len(list_passage) > 0:
+                    message = "Select the best date:"
+                    user_callback = {"inline_keyboard":[]}
+                    i = 0
+                    self.command[self.chat_id]['history']["selection"] = []
+                    for passage in list_passage:
+                        text = "{}".format(passage['date'])
+                        user_callback["inline_keyboard"].append([{"text":text, "callback_data":str(i)}])
+                        self.command[self.chat_id]['history']["selection"].append(dict(passage))
+                        i += 1
+
+                    return_id = self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
+                    self.command[self.chat_id]['history']['message_id'].append(return_id)
+                    self.command[self.chat_id]['step'] += 1
+                else:
+                    message = "Sorry, No passages.."
+                    self.send_message(chat_id=self.chat_id, message=message)
+                    del self.command[self.chat_id]
+
+        elif self.command[self.chat_id]['step'] == 3:
+            self.answer_callback(callback_id=self.callback_id)
+            self.command[self.chat_id]['history']["selection"][int(callback)]['favory'] = self.command[self.chat_id]['history']['favory']
+            self.alarm.append(self.command[self.chat_id]['history']["selection"][int(callback)])
+            self.__write_alarm()
+            message = "Congratulation, your alarm is succesfully saved !"
+            self.send_message(chat_id=self.chat_id, message=message)
+            self.__delete_messages()
+            del self.command[self.chat_id]
 
     def delalarm(self, callback=None, message_id=None):
         if self.command[self.chat_id]['step'] == 0:
             self.command[self.chat_id]['active'] = inspect.stack()[0][3]
-            self.command[self.chat_id]['history']['message_id'] = []
 
             if len(self.alarm) > 0:
                 message = "Select the alarm you wanna delete:"
                 user_callback = {"inline_keyboard":[]}
-                for i in len(0, self.alarm):
-                    day = ""
-                    for d in self.alarm[i]['day']:
-                        day += "{},".format(d)
-                    day = day[:-1]
-                    text = "\nFavory name :{} -> {} at {}".format(self.alarm[i]['line'], day, self.alarm[i]['time'])
+                for i in range(0, len(self.alarm)):
+                    text = "\nFavory name :{} -> at {}".format(self.alarm[i]['favory'], self.alarm[i]['date'])
                     user_callback["inline_keyboard"].append([{"text":text, "callback_data":i}])
 
                 return_id = self.send_callback(chat_id=self.chat_id, message=message, callback=user_callback)
@@ -306,7 +389,8 @@ class Chatbot(BotHandlerMixin, Bottle):
             self.__delete_messages()
             del self.command[self.chat_id]
             
-            self.alarm.pop(callback)
+            self.alarm.pop(int(callback))
+            self.__write_alarm()
             message = "Congratulation, your alarm is succesfully deleted !"
             self.send_message(chat_id=self.chat_id, message=message)
      
@@ -315,11 +399,7 @@ class Chatbot(BotHandlerMixin, Bottle):
         if len(self.alarm) > 0:
             message += "Here is your alarms :"
             for alarm in self.alarm:
-                day = ""
-                for d in alarm['day']:
-                    day += "{},".format(d)
-                day = day[:-1]
-                message += "\nFavory name :{} -> {} at {}".format(alarm['line'], day, alarm['time'])
+                message += "\nFavory name :{} -> at {}".format(alarm['favory'], alarm['date'])
         
         else:
             message += "Sorry, your alarm list is empty for now.\
@@ -366,6 +446,9 @@ class Chatbot(BotHandlerMixin, Bottle):
 
     def __write_favory(self):
         self.db.insert(user_id=self.chat_id, document={'favory':self.favory})
+
+    def __write_alarm(self):
+        self.db.insert(user_id=self.chat_id, document={'alarm':self.alarm})
 
     def __delete_messages(self):
         self.delete_message(chat_id=self.chat_id, message_id=self.command[self.chat_id]['history']['message_id'])

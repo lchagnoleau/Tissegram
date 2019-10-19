@@ -1,7 +1,7 @@
 # coding=UTF-8
 
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from log import get_logger
 
 import time
@@ -101,3 +101,32 @@ class PublicTransport(object):
 
         self.logger.debug("Next passages are : {}".format(next_passage))
         return next_passage
+
+    def get_passages(self, dest_id, stop_id, line_id, hour, minute):
+        self.logger.debug("Get  passages")
+        now_day = datetime.today().weekday()
+
+        diff = 7 - now_day
+        if diff == 0:
+            diff = 7
+        target_date = datetime.today() + timedelta(days=diff)
+        self.logger.debug("Next date found for {}".format(target_date))
+
+        #YYYY-MM-DD HH:MM
+        correct_date = target_date.strftime("%Y-%m-%d")
+        correct_date += " {:02d}:{:02d}".format(hour, minute)
+        self.logger.debug("Computed string is : {}".format(correct_date))
+        
+        param = "stopPointId={}&lineId={}&datetime={}".format(stop_id, line_id, correct_date)
+        result_request = requests.get(url=self.construct_url(function="stops_schedules", parameters=param)).json()
+        self.logger.debug("Response is : \n{}".format(result_request))
+
+        passage_list = []
+        
+        for departure in result_request['departures']['departure']:
+            if departure['destination'][0]['id'] == dest_id:
+                date = departure['dateTime'].split(' ')[1]
+                passage_list.append({'dest_id':dest_id, 'stop_id':stop_id, 'line_id':line_id, 'date':date})
+
+        self.logger.debug("possible passages are : {}".format(passage_list))
+        return passage_list
