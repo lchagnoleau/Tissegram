@@ -49,8 +49,9 @@ def get_logger(name, log_path="/var/log/tissegram/", level=None):
                 'datefmt': '%a %d %H:%M:%S',
                 'secondary_log_colors' : {
                     'message': {
-                        'INFO':    'green',
+                        'INFO':     'green',
                         'DEBUG':    'blue',
+                        'WARNING':  'yellow',
                         'ERROR':    'red',
                         'CRITICAL': 'red'
                         }

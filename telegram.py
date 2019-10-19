@@ -90,47 +90,37 @@ class BotHandlerMixin:
     def send_message(self, chat_id, message):
         message_url = self.url + 'sendMessage'
         json = {'chat_id':chat_id, 'text':message}
-        r = requests.post(message_url, json=json)
-        self.logger.debug("Send message at URL : {}\nBody : {}".format(message_url, json))
-        self.logger.debug("Response is : \n{}".format(r.json()))
+        r = self.send(url=message_url, body=json)
         return r.json()['result']['message_id']
 
     def send_callback(self, chat_id, message, callback):
         message_url = self.url + 'sendMessage'
         json = {'chat_id':chat_id, 'reply_markup':callback, 'text':message}
-        r = requests.post(message_url, json=json)
-        self.logger.debug("Send message at URL : {}\nBody : {}".format(message_url, json))
-        self.logger.debug("Response is : \n{}".format(r.json()))
+        r = self.send(url=message_url, body=json)
         return r.json()['result']['message_id']
 
     def get_Updates(self, offset=0):
         message_url = self.url + 'getUpdates'
         json = {'offset':offset}
-        r = requests.post(message_url, json=json)
-        self.logger.debug("Send message at URL : {}\nBody : {}".format(message_url, json))
-        self.logger.debug("Response is : \n{}".format(r.json()))
+        r = self.send(url=message_url, body=json)
         return r.json()
 
     def answer_callback(self, callback_id):
         message_url = self.url + 'answerCallbackQuery'
         json = {"callback_query_id": callback_id}
-        r = requests.post(message_url, json=json)
-        self.logger.debug("Send message at URL : {}\nBody : {}".format(message_url, json))
-        self.logger.debug("Response is : \n{}".format(r.json()))
+        self.send(url=message_url, body=json)
 
     def delete_message(self, chat_id, message_id):
-        message_url = self.url + 'deleteMessage'
-        json = {'chat_id':chat_id, 'message_id':message_id}
-        r = requests.post(message_url, json=json)
-        self.logger.debug("Send message at URL : {}\nBody : {}".format(message_url, json))
-        self.logger.debug("Response is : \n{}".format(r.json()))
+        self.logger.debug("List of message ID to delete : \n{}".format(message_id))
+        for m in message_id:
+            message_url = self.url + 'deleteMessage'
+            json = {'chat_id':chat_id, 'message_id':m}
+            self.send(url=message_url, body=json)
 
     def reset_messages(self):
         message_url = self.url + 'deleteWebhook'
         json = {}
-        r = requests.post(message_url, json=json)
-        self.logger.debug("Send message at URL : {}\nBody : {}".format(message_url, json))
-        self.logger.debug("Response is : \n{}".format(r.json()))
+        self.send(url=message_url, body=json)
         updates = self.get_Updates()
 
         if len(updates['result']) > 0:
@@ -143,6 +133,15 @@ class BotHandlerMixin:
 
         message_url = self.url + 'setWebhook'
         json = {'url':self.webhook_ip}
-        r = requests.post(message_url, json=json)
-        self.logger.debug("Send message at URL : {}\nBody : {}".format(message_url, json))
-        self.logger.debug("Response is : \n{}".format(r.json()))
+        self.send(url=message_url, body=json)
+
+    def send(self, url, body):
+        r = requests.post(url, json=body)
+        self.logger.debug("Send message at URL : {}\nBody : {}".format(url, body))
+        if r.json()['ok'] is True:
+            self.logger.debug("Response is : \n{}".format(r.json()))
+
+        else:
+            self.logger.warning("Response is : \n{}".format(r.json()))
+
+        return r

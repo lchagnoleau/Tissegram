@@ -16,12 +16,17 @@ class PublicTransport(object):
         self.token = token
 
     def construct_url(self, function, parameters = ""):
-        return "https://api.tisseo.fr/v1/{}.json?{}&key={}".format(function, parameters, self.token)
+        url = "https://api.tisseo.fr/v1/{}.json?{}&key={}".format(function, parameters, self.token)
+        self.logger.debug("Construct URL : {}".format(url))
+        return url
 
     def get_lines(self):
-        return requests.get(url=self.construct_url(function="lines")).json()
+        r = requests.get(url=self.construct_url(function="lines")).json()
+        self.logger.debug("Response is \n{}".format(r))
+        return r
 
     def get_line(self, line):
+        self.logger.debug("Get line info for line : {}".format(line))
         lines_dict = self.get_lines()
 
         line_info = {}
@@ -31,12 +36,16 @@ class PublicTransport(object):
                 line_info = l
                 break
 
+        self.logger.debug("Line info : {}".format(line_info))
         return line_info
 
     def get_points(self, line_id):
-        return requests.get(url=self.construct_url(function="stop_points", parameters="lineId={}".format(line_id))).json()
+        r = requests.get(url=self.construct_url(function="stop_points", parameters="lineId={}".format(line_id))).json()
+        self.logger.debug("Response is \n{}".format(r))
+        return r
 
     def get_places(self, term):
+        self.logger.debug("Get places for term : {}".format(term))
         places = []
         term = "%20".join(term.split(" "))
         param = "term={}&displayOnlyStopAreas=1".format(term)
@@ -45,9 +54,11 @@ class PublicTransport(object):
         for place in result_request['placesList']['place']:
             places.append([place['id'], place['label']])
 
+        self.logger.debug("Found places are : {}".format(places))
         return places
 
     def get_lines_by_stoppoints(self, stopId):
+        self.logger.debug("Get lines for stop ID : {}".format(stopId))
         list_line = []
 
         param = "stopAreaId={}&displayLines=1&displayDestinations=1&timeFrame=7".format(stopId)
@@ -64,9 +75,11 @@ class PublicTransport(object):
                         line['line-id'] = l['id']
                         list_line.append(dict(line))
 
+        self.logger.debug("Found lines are : {}".format(list_line))
         return list_line
 
     def get_next_passages(self, line, dest_id, stop_id, line_id):
+        self.logger.debug("Get next passage")
         now = datetime.now()
         next_passage = []
         
@@ -86,4 +99,5 @@ class PublicTransport(object):
             d2_ts = time.mktime(d2.timetuple())
             next_passage.append([l["dateTime"], int(int(d2_ts-d1_ts) / 60)])
 
+        self.logger.debug("Next passages are : {}".format(next_passage))
         return next_passage
