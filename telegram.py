@@ -1,13 +1,21 @@
 # coding=UTF-8
 
 import requests
+from log import get_logger
 
 class BotHandlerMixin:
     def __init__(self, token, webhook_ip):
+        #init logs
+        self.logger = get_logger(self.__class__.__name__)
+        self.logger.info("Init {}".format(self.__class__.__name__))
+
         self.url = 'https://api.telegram.org/bot{}/'.format(token)
+        self.logger.debug("Telegram URL is {}".format(self.url))
+
         self.data = {}
         self.chat_id = ""
         self.webhook_ip = webhook_ip
+        self.logger.debug("Telegram webhook IP is {}".format(self.webhook_ip))
 
     def set_data(self, data):
         self.data.clear()

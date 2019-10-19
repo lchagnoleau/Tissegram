@@ -4,6 +4,7 @@
 from database import DataBase
 from chatbot import Chatbot
 from public_transport import PublicTransport
+from log import get_logger
 
 import configparser
 import argparse
@@ -12,21 +13,32 @@ import threading
 
 
 def main(args):
+    # Configure Logger
+    level = 'NOTSET'
+    if args.verbose:
+        level = 'DEBUG'
+    logger = get_logger(name="main",level=level)
+    logger.info("Starting Tissegram")
+
+    # Get Config
+    logger.info("Get Config")
     config = configparser.ConfigParser()
     config.read(args.conf)
 
+    logger.info("Init database module")
     db = DataBase(  ip=config['Database']['ip'],
                     port=config['Database']['port'],
                     database=config['Database']['database'],
                     username=config['Database']['username'],
                     password=config['Database']['password'])
 
+    logger.info("Init transport module")
     transport = PublicTransport(token=config['Tisseo']['token'])
 
-    # print(transport.get_line(line="79"))
-    # print(transport.get_points(line_id="11821949021891674"))
-
+    logger.info("Init bot module")
     bot = Chatbot(token=config['Telegram']['token'], webhook_ip=config['Telegram']['webhook'], db=db, transport=transport)
+
+    logger.info("Start thread")
     threading.Thread(target=bot.run, kwargs=dict(host='localhost', port=5001)).start()
 
 if __name__ == '__main__':

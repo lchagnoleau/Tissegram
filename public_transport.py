@@ -2,11 +2,17 @@
 
 import requests
 from datetime import datetime
+from log import get_logger
+
 import time
 
 
 class PublicTransport(object):
     def __init__(self, token):
+        #init logs
+        self.logger = get_logger(self.__class__.__name__)
+        self.logger.info("Init {}".format(self.__class__.__name__))
+        
         self.token = token
 
     def construct_url(self, function, parameters = ""):
