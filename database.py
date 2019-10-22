@@ -7,7 +7,14 @@ class DataBase(object):
     def __init__(self, ip, port, database, username, password):
         try:
             #open MongoDB server
-            self.client = MongoClient('mongodb://%s:%s@%s:%s' % (username, password, ip, port))
+            self.client = MongoClient(  host=ip,
+                                        port=int(port), 
+                                        username=username, 
+                                        password=password,
+                                        authSource=database)
+
+
+            self.logger.debug("mongo ip is : {}".format(ip))
 
             #check if connection is well
             self.client.server_info()
