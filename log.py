@@ -24,10 +24,8 @@ class log(logging.Logger):
     def critical(self, msg, *args, **kwargs):
         logging.Logger.critical(self, msg, *args, **kwargs)
 
-def get_logger(name, log_path="/var/log/tissegram/", level=None):
+def get_logger(name, level=None):
     global handlers
-    if not path.exists(log_path):
-        makedirs(log_path)
     if level is not None:
         if level != "NOTSET":
             handlers = ['default', 'file']
@@ -68,7 +66,7 @@ def get_logger(name, log_path="/var/log/tissegram/", level=None):
                 'level': 'DEBUG',
                 'formatter': 'customFormat',
                 'class': 'logging.handlers.RotatingFileHandler',
-                'filename': log_path + 'all.log',
+                'filename': 'log',
                 'encoding': 'utf8',
                 'maxBytes': 100000000,
                 'backupCount': 3
