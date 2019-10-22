@@ -14,8 +14,6 @@ class DataBase(object):
                                         authSource=database)
 
 
-            self.logger.debug("mongo ip is : {}".format(ip))
-
             #check if connection is well
             self.client.server_info()
         except ServerSelectionTimeoutError:
