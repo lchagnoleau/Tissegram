@@ -12,9 +12,9 @@ HELP = {
     "/addfav":"add a favory",
     "/delfav":"remove a favory",
     "/showfav":"display list of favory",
-    "/addalarm":"add an alarm",
-    "/delalarm":"remove an alarm",
-    "/showalarm":"display list of alarm",
+    # "/addalarm":"add an alarm",
+    # "/delalarm":"remove an alarm",
+    # "/showalarm":"display list of alarm",
     "/next":"Get the next 5 passages of a specific favory"
 }
 
